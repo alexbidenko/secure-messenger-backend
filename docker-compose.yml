@@ -7,7 +7,7 @@ services:
     expose:
       - 7777
     ports:
-      - 7777:7777
+      - 7778:7777
     networks:
       - app_network
 
