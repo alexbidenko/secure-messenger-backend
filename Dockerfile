@@ -1,4 +1,3 @@
-
 FROM golang:1.15-alpine AS build
 # Support CGO and SSL
 RUN apk --no-cache add gcc g++ make
