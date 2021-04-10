@@ -17,6 +17,8 @@ services:
       - admes_application
     expose:
       - 80
+    ports:
+      - 7777:80
     networks:
       - app_network
       - server
