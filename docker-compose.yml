@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  admes_application:
+    restart: unless-stopped
+    build: .
+    expose:
+      - 7777
+    networks:
+      - app_network
+
+  nginx:
+    restart: unless-stopped
+    build: .nginx
+    container_name: admes_backend
+    depends_on:
+      - admes_application
+    expose:
+      - 80
+    networks:
+      - app_network
+      - server
+
+networks:
+  app_network:
+    driver: bridge
+  server:
+    external: true
