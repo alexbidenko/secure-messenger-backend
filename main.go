@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -31,7 +32,7 @@ func NewPool() *Pool {
 }
 
 type Client struct {
-	ID string
+	User *User
 	Conn *websocket.Conn
 	Pool *Pool
 	Channel string
@@ -41,6 +42,17 @@ type Message struct {
 	Type int    `json:"type"`
 	Body string `json:"body"`
 	Client *Client `json:"-"`
+}
+
+type MessageBody struct {
+	Type int `json:"type"`
+	Content map[string]interface{} `json:"content"`
+	User User `json:"user"`
+}
+
+type User struct {
+	Id float64 `json:"id"`
+	Name string `json:"name"`
 }
 
 func (c *Client) Read() {
@@ -55,7 +67,32 @@ func (c *Client) Read() {
 			log.Println(err)
 			return
 		}
-		message := Message{Type: MessageType, Body: string(p), Client: c}
+
+		var messageBody MessageBody
+		json.Unmarshal(p, &messageBody)
+
+		var message Message
+		if messageBody.Type == JoinType {
+			fmt.Println(messageBody.Content)
+			user := User{
+				Id: messageBody.Content["id"].(float64),
+				Name: messageBody.Content["name"].(string),
+			}
+			c.User = &user
+
+			var users []User
+			for k, _ := range c.Pool.Channels[c.Channel] {
+				users = append(users, *k.User)
+			}
+			body, _ := json.Marshal(map[string][]User{"users": users})
+
+			message = Message{Type: messageBody.Type, Body: string(body), Client: c}
+		} else {
+			messageBody.User = *c.User
+			body, _ := json.Marshal(messageBody)
+			message = Message{Type: messageBody.Type, Body: string(body), Client: c}
+		}
+
 		c.Pool.Broadcast <- message
 		fmt.Printf("Message Received: %+v\n", message)
 	}
@@ -73,7 +110,6 @@ func (pool *Pool) Start() {
 			channel[client] = true
 			for client, _ := range channel {
 				fmt.Println(client)
-				client.Conn.WriteJSON(Message{Type: JoinType, Body: "New User Joined..."})
 			}
 			break
 		case client := <-pool.Unregister:
@@ -81,8 +117,17 @@ func (pool *Pool) Start() {
 			if channel != nil {
 				if _, ok := channel[client]; ok {
 					delete(channel, client)
+
+					var users []User
+					for k, _ := range client.Pool.Channels[client.Channel] {
+						users = append(users, *k.User)
+					}
+					body, _ := json.Marshal(map[string][]User{"users": users})
+
+					message := Message{Type: DisconnectType, Body: string(body), Client: client}
+
 					for client, _ := range channel {
-						client.Conn.WriteJSON(Message{Type: DisconnectType, Body: "User Disconnected..."})
+						client.Conn.WriteJSON(message)
 					}
 				}
 			}
