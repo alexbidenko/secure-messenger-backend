@@ -12,6 +12,8 @@ const (
 	MessageType    = iota
 	JoinType       = iota
 	DisconnectType = iota
+	OfferType      = iota
+	AnswerType     = iota
 )
 
 type Message struct {
